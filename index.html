@@ -1,0 +1,1590 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Grand Luxury Tree - Christmas Edition</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@400;700&family=Dancing+Script:wght@400;700&family=Playfair+Display:wght@400;700&display=swap');
+        body { 
+            margin: 0; 
+            overflow: hidden; 
+            background: radial-gradient(circle at center, #0f2027 0%, #203a43 50%, #2c5364 100%); 
+            background-color: #050d1a; /* Fallback */
+            font-family: 'Cinzel', 'Playfair Display', serif;
+        }
+        #canvas-container { width: 100vw; height: 100vh; position: absolute; top: 0; left: 0; z-index: 1; }
+        
+        /* UI Overlay */
+        #ui-layer {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            z-index: 10; pointer-events: none;
+            display: flex; flex-direction: column; 
+            align-items: center;
+            padding-top: 40px;
+            box-sizing: border-box;
+            transition: opacity 0.5s ease;
+        }
+        
+        .ui-hidden {
+            opacity: 0 !important;
+            pointer-events: none !important;
+        }
+
+        /* Loading */
+        #loader {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            background: #050d1a; z-index: 100;
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+            transition: opacity 0.8s ease-out;
+        }
+        .loader-text {
+            color: #d4af37; font-size: 14px; letter-spacing: 4px; margin-top: 20px;
+            text-transform: uppercase; font-weight: 100;
+        }
+        .spinner {
+            width: 40px; height: 40px; border: 1px solid rgba(212, 175, 55, 0.2); 
+            border-top: 1px solid #d4af37; border-radius: 50%; 
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+
+        /* Typography */
+        h1 { 
+            color: #fceea7; font-size: 56px; margin: 0; font-weight: 400; 
+            letter-spacing: 6px; 
+            text-shadow: 0 0 50px rgba(252, 238, 167, 0.6); 
+            background: linear-gradient(to bottom, #fff, #eebb66);
+            -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+            font-family: 'Cinzel', 'Times New Roman', serif;
+            opacity: 0.9;
+            transition: opacity 0.5s ease;
+        }
+
+        /* Controls */
+        .controls-wrapper {
+            position: absolute; 
+            top: 30px;          
+            right: 30px;        
+            pointer-events: auto;
+            display: flex;
+            flex-direction: column;
+            align-items: flex-end;
+            gap: 10px;
+            z-index: 20;
+            transition: opacity 0.5s ease;
+        }
+
+        .btn-group {
+            display: flex;
+            gap: 10px;
+        }
+
+        .upload-btn {
+            font-family: 'Cinzel', 'Playfair Display', serif;
+            background: rgba(20, 20, 20, 0.6); 
+            border: 1px solid rgba(212, 175, 55, 0.4); 
+            color: #d4af37; 
+            padding: 10px 20px; 
+            cursor: pointer; 
+            text-transform: uppercase; 
+            letter-spacing: 2px; 
+            font-size: 10px;
+            transition: all 0.4s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            backdrop-filter: blur(5px);
+            min-width: 120px;
+        }
+        .upload-btn:hover { 
+            background: #d4af37; 
+            color: #000; 
+            box-shadow: 0 0 20px rgba(212, 175, 55, 0.5);
+        }
+        
+        .hint-text {
+            color: rgba(212, 175, 55, 0.5);
+            font-size: 9px;
+            letter-spacing: 1px;
+            text-transform: uppercase;
+            text-align: right;
+            margin-top: 5px;
+        }
+
+        input[type="file"] { display: none; }
+
+        /* Webcam feedback */
+        #webcam-wrapper {
+            position: absolute; 
+            bottom: 30px;       
+            left: 30px;         
+            width: 200px;       
+            height: 150px;
+            border: 1px solid rgba(212, 175, 55, 0.5); 
+            box-shadow: 0 0 20px rgba(0,0,0,0.9);
+            border-radius: 4px;
+            overflow: hidden; 
+            opacity: 1;         
+            pointer-events: none;
+            z-index: 50;
+            background: #000;
+            transition: opacity 0.5s ease; 
+        }
+        
+        #webcam {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            transform: scaleX(-1); 
+        }
+
+        /* Debug info for gestures */
+        #debug-info {
+            position: absolute;
+            bottom: 5px;
+            left: 5px;
+            color: rgba(212, 175, 55, 0.8);
+            font-size: 10px;
+            font-family: monospace;
+            background: rgba(0,0,0,0.5);
+            padding: 2px 5px;
+            pointer-events: none;
+        }
+
+        #letter-overlay {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            z-index: 150; 
+            background: rgba(0,0,0,0.6); 
+            display: none; 
+            align-items: center; justify-content: center; 
+            pointer-events: auto; 
+            opacity: 0; 
+            transition: opacity 1.5s ease; 
+        }
+
+        .letter-paper {
+            height: 80%; 
+            aspect-ratio: 3/4; 
+            
+            background: rgba(255, 252, 240, 0.15); 
+            backdrop-filter: blur(5px); 
+            
+            border: 1px solid rgba(255, 255, 255, 0.3); 
+            padding: 6vh; 
+            box-sizing: border-box; 
+            position: relative; 
+            display: flex; flex-direction: column; 
+            transform: translateY(20px); 
+            transition: transform 1.5s ease-out;
+            border-radius: 10px;
+            box-shadow: 0 0 30px rgba(255, 255, 255, 0.1);
+        }
+
+        .letter-content {
+            font-family: 'Dancing Script', cursive;
+            font-size: clamp(18px, 2.5vh, 26px);
+            line-height: 1.8; 
+            
+            color: rgba(255, 255, 255, 0.9); 
+            text-shadow: 0 0 5px rgba(255,215,0, 0.3); 
+            
+            white-space: pre-wrap; 
+            overflow-y: auto; 
+            flex: 1; 
+            scroll-behavior: smooth;
+        }
+        
+        .letter-content::-webkit-scrollbar { width: 6px; }
+        .letter-content::-webkit-scrollbar-thumb { background: rgba(212, 175, 55, 0.3); border-radius: 3px; }
+
+        .cursor::after { content: '|'; animation: blink 1s step-end infinite; }
+        @keyframes blink { 50% { opacity: 0; } }
+
+        .letter-close-btn {
+            position: absolute; top: 15px; right: 15px; 
+            width: 30px; height: 30px; 
+            border: 1px solid rgba(255,255,255,0.4); 
+            border-radius: 50%; 
+            color: rgba(255,255,255,0.7); 
+            display: flex; align-items: center; justify-content: center; 
+            cursor: pointer; 
+            transition: all 0.3s;
+            font-family: sans-serif;
+            font-size: 18px;
+        }
+        .letter-close-btn:hover { background: rgba(255,255,255,0.2); color: #fff; border-color: #fff; }
+    </style>
+    
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@400;700&display=swap');
+    </style>
+
+    <script type="importmap">
+        {
+            "imports": {
+                "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+                "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/",
+                "@mediapipe/tasks-vision": "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.3/+esm"
+            }
+        }
+    </script>
+</head>
+<body>
+
+    <div id="loader">
+        <div class="spinner"></div>
+        <div class="loader-text">Loading Memories</div>
+    </div>
+
+    <div id="canvas-container"></div>
+
+    <div id="ui-layer">
+        <h1>Merry Christmas</h1>
+    </div>
+    <audio id="bg-music" loop>
+        <source src="https://www.dropbox.com/scl/fi/e3vi4qjr0tiv4vd05sry6/we-wish-you-a-merry-christmas-calm-christmas-piano-280765.mp3?rlkey=720idss4qgo1j6zw2afu9rn9s&st=7z2ot32p&raw=1" type="audio/mp3">
+    </audio>
+
+    <div id="music-btn" style="
+        position: absolute; 
+        top: 20px; 
+        right: 20px; 
+        z-index: 100; 
+        cursor: pointer; 
+        opacity: 0.7; 
+        transition: opacity 0.3s;
+        width: 32px; 
+        height: 32px;
+        filter: drop-shadow(0 0 5px #d4af37);">
+        
+        <svg id="icon-sound-on" viewBox="0 0 24 24" fill="#d4af37">
+            <path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77z"/>
+        </svg>
+        
+        <svg id="icon-sound-off" viewBox="0 0 24 24" fill="#d4af37" style="display: none;">
+            <path d="M16.5 12c0-1.77-1.02-3.29-2.5-4.03v2.21l2.45 2.45c.03-.2.05-.41.05-.63zm2.5 0c0 .94-.2 1.82-.54 2.64l1.51 1.51C20.63 14.91 21 13.5 21 12c0-4.28-2.99-7.86-7-8.77v2.06c2.89.86 5 3.54 5 6.71zM4.27 3L3 4.27 7.73 9H3v6h4l5 5v-6.73l4.25 4.25c-.67.52-1.42.93-2.25 1.18v2.06c1.38-.31 2.63-.95 3.69-1.81L19.73 21 21 19.73 4.27 3zM12 4L9.91 6.09 12 8.18V4z"/>
+        </svg>
+    </div>
+    <div id="webcam-wrapper">
+        <video id="webcam" autoplay playsinline></video>
+        <div id="debug-info">Initializing...</div>
+        <canvas id="webcam-preview" style="display:none;"></canvas>
+    </div>
+
+    <div id="btn-open-letter" title="Gửi em">
+        <svg viewBox="0 0 24 24" width="24" height="24" fill="#d4af37">
+            <path d="M20 4H4c-1.1 0-1.99.9-1.99 2L2 18c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 4l-8 5-8-5V6l8 5 8-5v2z"/>
+        </svg>
+    </div>
+
+    <div id="letter-overlay">
+        <div class="letter-paper">
+            <div class="letter-close-btn" id="btn-close-letter">×</div>
+            <div class="letter-content" id="letter-content-display"></div>
+        </div>
+    </div>
+
+    <script type="module">
+        import * as THREE from 'three';
+        import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+        import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
+        import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
+        import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
+        import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js'; 
+        import { FilesetResolver, HandLandmarker } from '@mediapipe/tasks-vision';
+
+        // --- 核心配置 ---
+        const CONFIG = {
+            colors: {
+                bg: 0x020205, // 修改：深邃午夜蓝 (Midnight Blue)
+                fog: 0x020205,
+                champagneGold: 0xffd700, 
+                deepGreen: 0x004400,     
+                accentRed: 0x880000,     
+            },
+            particles: {
+                count: 1800,     
+                dustCount: 2000, 
+                snowCount: 2000, // 新增：雪花数量
+                treeHeight: 28,  
+                treeRadius: 9    
+            },
+            camera: { z: 50 },
+            
+            preload: {
+                autoScanLocal: true,
+                scanCount: 200, 
+                images: [
+                ]
+            },
+            letter: "Gửi embe,\n\nMùa Giáng Sinh này, Bắp tặng embe một món quà nhỏ ạ.\nCảm ơn em đã luôn ở bên cạnh Bắp (tính đến giờ cũng được 5 cái Giáng sinh rùii :3).\n\nChúc em của mình một mùa Giáng Sinh ấm áp, an lành và hạnh phúc nhé! (đợi mình zề nhó)\nÀ quên còn chúc embe đạt aim IELTS sắp tới ạ =)\n\nYêu em. ❤️\n\n- Bắp Noel 2025"
+        };
+
+        const STATE = {
+            mode: 'TREE', 
+            focusIndex: -1, 
+            focusTarget: null,
+            hand: { detected: false, x: 0, y: 0 },
+            rotation: { x: 0, y: 0 },
+            targetZ: 50,
+            theme: 'XMAS',
+            snowEnabled: true,
+            letterTyper: null,
+            isLetterOpen: false,
+            themeSwitchLock: false
+        };
+
+        let scene, camera, renderer, composer;
+        let matLib = {};
+        let mainGroup; 
+        let clock = new THREE.Clock();
+        let particleSystem = []; 
+        let photoMeshGroup = new THREE.Group();
+        let handLandmarker, video;
+        let caneTexture; 
+        let snowSystem; // 新增：雪花系统
+        const debugInfo = document.getElementById('debug-info');
+
+
+        async function init() {
+            initThree();
+            setupEnvironment(); 
+            setupLights();
+            createTextures();
+            createParticles(); 
+            createDust();
+            createSnow(); // 新增：创建雪花
+            loadPredefinedImages();
+            setupPostProcessing();
+            setupEvents();
+            await initMediaPipe();
+            
+            const loader = document.getElementById('loader');
+            loader.style.opacity = 0;
+            setTimeout(() => loader.remove(), 800);
+
+            animate();
+        }
+// wp/electronicminer wish you a Merry Christmas!
+        // --- 增强版图片加载系统 ---
+        function loadPredefinedImages() {
+            const loader = new THREE.TextureLoader();
+            CONFIG.preload.images.forEach(url => {
+                loader.load(url, 
+                    (t) => { t.colorSpace = THREE.SRGBColorSpace; addPhotoToScene(t); },
+                    undefined,
+                    (e) => { console.log(`Skipped: ${url}`); }
+                );
+            });
+
+            if (CONFIG.preload.autoScanLocal) {
+                for (let i = 1; i <= CONFIG.preload.scanCount; i++) {
+                    const pathJpg = `./images/(${i}).jpg`;
+                    const pathPng = `./images/(${i}).png`;
+                    loader.load(pathJpg, 
+                        (t) => { t.colorSpace = THREE.SRGBColorSpace; addPhotoToScene(t); },
+                        undefined,
+                        () => {
+                             loader.load(pathPng, 
+                                (t) => { t.colorSpace = THREE.SRGBColorSpace; addPhotoToScene(t); },
+                                undefined,
+                                () => {} 
+                             );
+                        }
+                    );
+                }
+            }
+        }
+
+        function initThree() {
+            const container = document.getElementById('canvas-container');
+            scene = new THREE.Scene();
+            // 设置 Three.js 场景背景为深蓝色，与 CSS 渐变配合
+            scene.background = new THREE.Color(CONFIG.colors.bg);
+            scene.fog = new THREE.FogExp2(CONFIG.colors.fog, 0.015); // 调整雾气浓度
+
+            camera = new THREE.PerspectiveCamera(42, window.innerWidth / window.innerHeight, 0.1, 1000);
+            camera.position.set(0, 2, CONFIG.camera.z); 
+
+            // 启用 alpha: true 以便未来如果有需要可以透过背景
+            renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true, powerPreference: "high-performance" });
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+            renderer.toneMapping = THREE.ReinhardToneMapping; 
+            renderer.toneMappingExposure = 2.2; 
+            container.appendChild(renderer.domElement);
+
+            mainGroup = new THREE.Group();
+            scene.add(mainGroup);
+        }
+
+        function setupEnvironment() {
+            const pmremGenerator = new THREE.PMREMGenerator(renderer);
+            scene.environment = pmremGenerator.fromScene(new RoomEnvironment(), 0.04).texture;
+        }
+
+        function setupLights() {
+            const ambient = new THREE.AmbientLight(0xffffff, 0.6); // 稍微提高环境光
+            scene.add(ambient);
+
+            const innerLight = new THREE.PointLight(0xffaa00, 2, 20);
+            innerLight.position.set(0, 5, 0);
+            mainGroup.add(innerLight);
+
+            const spotGold = new THREE.SpotLight(0xffcc66, 1200);
+            spotGold.position.set(30, 40, 40);
+            spotGold.angle = 0.5;
+            spotGold.penumbra = 0.5;
+            scene.add(spotGold);
+
+            const spotBlue = new THREE.SpotLight(0x6688ff, 800); // 增强蓝色背光，营造月光感
+            spotBlue.position.set(-30, 20, -30);
+            scene.add(spotBlue);
+            
+            const fill = new THREE.DirectionalLight(0xffeebb, 0.8);
+            fill.position.set(0, 0, 50);
+            scene.add(fill);
+        }
+
+        function setupPostProcessing() {
+            const renderScene = new RenderPass(scene, camera);
+            const bloomPass = new UnrealBloomPass(new THREE.Vector2(window.innerWidth, window.innerHeight), 1.5, 0.4, 0.85);
+            bloomPass.threshold = 0.65; // 稍微降低阈值让更多东西发光
+            bloomPass.strength = 0.5; 
+            bloomPass.radius = 0.4;
+
+            composer = new EffectComposer(renderer);
+            composer.addPass(renderScene);
+            composer.addPass(bloomPass);
+        }
+        function createHeartTexture() {
+            const canvas = document.createElement('canvas');
+            canvas.width = 64; canvas.height = 64;
+            const ctx = canvas.getContext('2d');
+            ctx.fillStyle = '#ff69b4'; // Màu hồng đậm
+            
+            // Vẽ hình trái tim 2D
+            ctx.beginPath();
+            const topCurveHeight = 20; 
+            ctx.moveTo(32, 60);
+            ctx.bezierCurveTo(32, 57, 10, 45, 10, 25);
+            ctx.bezierCurveTo(10, 10, 32, 10, 32, 25);
+            ctx.bezierCurveTo(32, 10, 54, 10, 54, 25);
+            ctx.bezierCurveTo(54, 45, 32, 57, 32, 60);
+            ctx.fill();
+
+            const tex = new THREE.CanvasTexture(canvas);
+            return tex;
+        }
+
+        function createFrostTexture() {
+            const canvas = document.createElement('canvas'); 
+            canvas.width = 256; canvas.height = 256;
+            const ctx = canvas.getContext('2d');
+            ctx.fillStyle = '#666'; ctx.fillRect(0,0,256,256);
+            
+            // Vẽ các vết xước ngẫu nhiên
+            for(let i=0; i<80; i++) {
+                ctx.strokeStyle = `rgba(255,255,255,${0.2 + Math.random()*0.5})`;
+                ctx.lineWidth = Math.random() * 2 + 0.5;
+                ctx.beginPath();
+                const x = Math.random()*256, y = Math.random()*256;
+                ctx.moveTo(x, y);
+                ctx.lineTo(x + (Math.random()-0.5)*60, y + (Math.random()-0.5)*60);
+                ctx.stroke();
+            }
+            
+            // Thêm nhiễu hạt (Noise)
+            const imgData = ctx.getImageData(0,0,256,256);
+            for (let i = 0; i < imgData.data.length; i += 4) {
+                if (Math.random() > 0.9) {
+                    const noise = Math.random() * 50;
+                    imgData.data[i] += noise; imgData.data[i+1] += noise; imgData.data[i+2] += noise;
+                }
+            }
+            ctx.putImageData(imgData, 0, 0);
+            
+            const tex = new THREE.CanvasTexture(canvas);
+            tex.wrapS = THREE.RepeatWrapping; 
+            tex.wrapT = THREE.RepeatWrapping;
+            return tex;
+        }
+        function createTextures() {
+            const canvas = document.createElement('canvas');
+            canvas.width = 128; canvas.height = 128;
+            const ctx = canvas.getContext('2d');
+            ctx.fillStyle = '#ffffff';
+            ctx.fillRect(0,0,128,128);
+            ctx.fillStyle = '#880000'; 
+            ctx.beginPath();
+            for(let i=-128; i<256; i+=32) {
+                ctx.moveTo(i, 0); ctx.lineTo(i+32, 128); ctx.lineTo(i+16, 128); ctx.lineTo(i-16, 0);
+            }
+            ctx.fill();
+            caneTexture = new THREE.CanvasTexture(canvas);
+            caneTexture.wrapS = THREE.RepeatWrapping;
+            caneTexture.wrapT = THREE.RepeatWrapping;
+            caneTexture.repeat.set(3, 3);
+        }
+// wp/electronicminer wish you a Merry Christmas!
+        // --- 新增：雪花系统 ---
+        function createSnow() {
+            const geometry = new THREE.BufferGeometry();
+            const vertices = [];
+            const velocities = [];
+
+            const loader = new THREE.TextureLoader();
+            // 创建一个简单的圆形纹理作为雪花
+            const canvas = document.createElement('canvas');
+            canvas.width = 32; canvas.height = 32;
+            const context = canvas.getContext('2d');
+            context.fillStyle = 'white';
+            context.beginPath();
+            context.arc(16, 16, 16, 0, Math.PI * 2);
+            context.fill();
+            const snowTexture = new THREE.CanvasTexture(canvas);
+
+            for (let i = 0; i < CONFIG.particles.snowCount; i++) {
+                const x = THREE.MathUtils.randFloatSpread(100);
+                const y = THREE.MathUtils.randFloatSpread(60);
+                const z = THREE.MathUtils.randFloatSpread(60);
+                vertices.push(x, y, z);
+                
+                // 存储每个雪花的速度和摆动参数
+                velocities.push(
+                    Math.random() * 0.2 + 0.1, // fall speed
+                    Math.random() * 0.05       // sway speed
+                );
+            }
+
+            geometry.setAttribute('position', new THREE.Float32BufferAttribute(vertices, 3));
+            geometry.setAttribute('userData', new THREE.Float32BufferAttribute(velocities, 2));
+
+            const material = new THREE.PointsMaterial({
+                color: 0xffffff,
+                size: 0.4,
+                map: snowTexture,
+                transparent: true,
+                opacity: 0.8,
+                blending: THREE.AdditiveBlending,
+                depthWrite: false
+            });
+
+            const snow = new THREE.Points(geometry, material);
+            snow.visible = true;
+            scene.add(snow);
+            snowSystem = snow;
+
+            if (matLib) matLib.snowOriginal = material;
+        }
+
+        function updateSnow() {
+            if (!snowSystem) return;
+            
+            const positions = snowSystem.geometry.attributes.position.array;
+            const userData = snowSystem.geometry.attributes.userData.array;
+
+            for (let i = 0; i < CONFIG.particles.snowCount; i++) {
+                // 1. Cập nhật vị trí rơi (Luôn luôn rơi bất kể theme nào)
+                const fallSpeed = userData[i * 2];
+                positions[i * 3 + 1] -= fallSpeed;
+
+                // X trục lắc lư
+                const swaySpeed = userData[i * 2 + 1];
+                positions[i * 3] += Math.sin(clock.elapsedTime * 2 + i) * swaySpeed * 0.1;
+
+                // 2. Kiểm tra biên giới đáy (khoảng -35 là hết màn hình)
+                if (positions[i * 3 + 1] < -35) {
+                    
+                    if (STATE.snowEnabled) {
+                        // [THEME XMAS]: Tái sinh hạt tuyết lên trên đỉnh
+                        // Dải Y từ 30 đến 60 để tuyết rơi so le nhau, không bị rơi thành 1 cục
+                        positions[i * 3 + 1] = 30 + Math.random() * 30; 
+                        
+                        // Random lại vị trí X, Z để trông tự nhiên
+                        positions[i * 3] = THREE.MathUtils.randFloatSpread(100); 
+                        positions[i * 3 + 2] = THREE.MathUtils.randFloatSpread(60);
+                    } 
+                    else {
+                        // [THEME ICE]: Không làm gì cả!
+                        // Hạt tuyết sẽ tiếp tục rơi xuống -40, -100... và biến mất khỏi tầm nhìn.
+                        // Khi chuyển lại XMAS, hạt này đang ở tít dưới sâu (-100), 
+                        // nó vẫn < -35 nên sẽ lọt vào block 'if' ở trên và lập tức được đưa lên đỉnh.
+                        // -> Tạo hiệu ứng tuyết bắt đầu rơi từ trên xuống.
+                    }
+                }
+            }
+            snowSystem.geometry.attributes.position.needsUpdate = true;
+        }
+
+        class Particle {
+            constructor(mesh, type, isDust = false) {
+                this.mesh = mesh;
+                this.type = type;
+                this.isDust = isDust;
+                this.isViewed = false;
+                
+                this.posTree = new THREE.Vector3();
+                this.posScatter = new THREE.Vector3();
+                this.baseScale = mesh.scale.x; 
+
+                const speedMult = (type === 'PHOTO') ? 0.3 : 2.0;
+
+                this.spinSpeed = new THREE.Vector3(
+                    (Math.random() - 0.5) * speedMult,
+                    (Math.random() - 0.5) * speedMult,
+                    (Math.random() - 0.5) * speedMult
+                );
+
+                this.calculatePositions();
+            }
+
+            calculatePositions() {
+                if (this.type === 'PHOTO') {
+                    // Logic tính vị trí ẢNH giữ nguyên
+                    this.posTree.set(0, 0, 0); 
+                    const rScatter = 8 + Math.random()*12;
+                    const theta = Math.random() * Math.PI * 2;
+                    const phi = Math.acos(2 * Math.random() - 1);
+                    this.posScatter.set(
+                        rScatter * Math.sin(phi) * Math.cos(theta),
+                        rScatter * Math.sin(phi) * Math.sin(theta),
+                        rScatter * Math.cos(phi)
+                    );
+                    return;
+                }
+
+                // --- THUẬT TOÁN MỚI TỪ FILE BAPNOEL ---
+                const h = CONFIG.particles.treeHeight;
+                let t = Math.random();
+                
+                // 30% hạt tạo thành đường xoắn ốc rõ ràng (giúp cây có form đẹp)
+                // Điều kiện: Không phải bụi và không phải ảnh
+                if (Math.random() > 0.7 && !this.isDust && this.type !== 'PHOTO') {
+                    const y = (t * h) - h/2;
+                    const angle = t * Math.PI * 12; // Xoắn 6 vòng
+                    const rBase = CONFIG.particles.treeRadius * (1.0 - t);
+                    this.posTree.set(Math.cos(angle) * rBase, y, Math.sin(angle) * rBase);
+                } else {
+                    // 70% hạt còn lại lấp đầy thể tích (tạo độ dày)
+                    t = Math.pow(t, 0.8); // Dồn hạt xuống dưới đáy một chút cho vững
+                    const y = (t * h) - h/2;
+                    const angle = Math.random() * Math.PI * 2;
+                    // Phân bố đều trong hình nón
+                    const r = Math.max(0.5, CONFIG.particles.treeRadius * (1.0 - t)) * Math.sqrt(Math.random());
+                    this.posTree.set(Math.cos(angle) * r, y, Math.sin(angle) * r);
+                }
+
+                // Tính vị trí khi tán xạ (Scatter)
+                let rScatter = this.isDust ? (15 + Math.random()*25) : (10 + Math.random()*15);
+                const theta = Math.random() * Math.PI * 2;
+                const phi = Math.acos(2 * Math.random() - 1);
+                this.posScatter.set(
+                    rScatter * Math.sin(phi) * Math.cos(theta),
+                    rScatter * Math.sin(phi) * Math.sin(theta),
+                    rScatter * Math.cos(phi)
+                );
+            }
+// wp/electronicminer wish you a Merry Christmas!
+            update(dt, mode, focusTargetMesh) {
+                let target = this.posTree;
+                
+                if (mode === 'SCATTER') target = this.posScatter;
+                else if (mode === 'FOCUS') {
+                    if (this.mesh === focusTargetMesh) {
+                        const desiredWorldPos = new THREE.Vector3(0, 2, 35);
+                        const invMatrix = new THREE.Matrix4().copy(mainGroup.matrixWorld).invert();
+                        target = desiredWorldPos.applyMatrix4(invMatrix);
+                    } else {
+                        target = this.posScatter;
+                    }
+                }
+
+                const lerpSpeed = (mode === 'FOCUS' && this.mesh === focusTargetMesh) ? 5.0 : 2.0; 
+                this.mesh.position.lerp(target, lerpSpeed * dt);
+
+                if (mode === 'SCATTER') {
+                    this.mesh.rotation.x += this.spinSpeed.x * dt;
+                    this.mesh.rotation.y += this.spinSpeed.y * dt;
+                    this.mesh.rotation.z += this.spinSpeed.z * dt; 
+                } else if (mode === 'TREE') {
+                    if (this.type === 'PHOTO') {
+                        this.mesh.lookAt(0, this.mesh.position.y, 0);
+                        this.mesh.rotateY(Math.PI);
+                    } else {
+                        this.mesh.rotation.x = THREE.MathUtils.lerp(this.mesh.rotation.x, 0, dt);
+                        this.mesh.rotation.z = THREE.MathUtils.lerp(this.mesh.rotation.z, 0, dt);
+                        this.mesh.rotation.y += 0.5 * dt; 
+                    }
+                }
+                
+                if (mode === 'FOCUS' && this.mesh === focusTargetMesh) {
+                    this.mesh.lookAt(camera.position); 
+                }
+
+                let s = this.baseScale;
+                if (this.type === 'PHOTO' && this.isViewed && this.mesh !== focusTargetMesh) {
+                    s = 0;
+                } 
+                else if (this.isDust) {
+                    s = this.baseScale * (0.8 + 0.4 * Math.sin(clock.elapsedTime * 4 + this.mesh.id));
+                    if (mode === 'TREE' && STATE.theme !== 'ICE') {
+                        s = 0; 
+                    }
+                } else if (mode === 'SCATTER' && this.type === 'PHOTO') {
+                    s = this.baseScale * 2.5; 
+                } else if (mode === 'FOCUS') {
+                    if (this.mesh === focusTargetMesh) s = 4.5; 
+                    else s = this.baseScale * 0.8; 
+                }
+                
+                this.mesh.scale.lerp(new THREE.Vector3(s,s,s), 4*dt);
+            }
+        }
+
+        function updatePhotoLayout() {
+            const photos = particleSystem.filter(p => p.type === 'PHOTO');
+            const count = photos.length;
+            if (count === 0) return;
+
+            const h = CONFIG.particles.treeHeight * 0.9;
+            const bottomY = -h/2;
+            const stepY = h / count;
+            const loops = 3;
+
+            photos.forEach((p, i) => {
+                const y = bottomY + stepY * i + stepY/2;
+                const fullH = CONFIG.particles.treeHeight;
+                const normalizedH = (y + fullH/2) / fullH; 
+
+                let rMax = CONFIG.particles.treeRadius * (1.0 - normalizedH);
+                if (rMax < 1.0) rMax = 1.0;
+                
+                const r = rMax + 3.0; 
+                const angle = normalizedH * Math.PI * 2 * loops + (Math.PI/4); 
+
+                p.posTree.set(Math.cos(angle) * r, y, Math.sin(angle) * r);
+            });
+        }
+
+        function createParticles() {
+            // 1. KHỞI TẠO VẬT LIỆU (MATERIALS)
+            const frostTex = createFrostTexture(); // Tạo texture băng
+            const heartSnowTex = createHeartTexture();
+
+            matLib = {
+                // --- THEME XMAS (Sang trọng) ---
+                gold: new THREE.MeshStandardMaterial({
+                    color: CONFIG.colors.champagneGold,
+                    metalness: 1.0, roughness: 0.15, envMapIntensity: 2.5, 
+                    emissive: 0x664400, emissiveIntensity: 0.2
+                }),
+                green: new THREE.MeshStandardMaterial({
+                    color: CONFIG.colors.deepGreen,
+                    metalness: 0.4, roughness: 0.3,
+                    emissive: 0x001100, emissiveIntensity: 0.1 
+                }),
+                red: new THREE.MeshPhysicalMaterial({
+                    color: CONFIG.colors.accentRed,
+                    metalness: 0.6, roughness: 0.2, clearcoat: 1.0,
+                    emissive: 0x330000, emissiveIntensity: 0.4
+                }),
+                candy: new THREE.MeshStandardMaterial({ 
+                    map: caneTexture, roughness: 0.3, metalness: 0.1, emissive: 0x222222 
+                }),
+
+                // --- THEME ICE (Mới - Giống file mẫu) ---
+                ice: new THREE.MeshPhysicalMaterial({ 
+                    color: 0x1a2b3c, // Xanh băng
+                    metalness: 0.9, roughness: 0.2, roughnessMap: frostTex, // Có vết xước
+                    transmission: 0.0, 
+                    thickness: 2.5, ior: 1.5, 
+                    clearcoat: 1.0, clearcoatRoughnessMap: frostTex,
+                    emissive: 0x000a1a, emissiveIntensity: 0.3, envMapIntensity: 1.5
+                }),
+                snow: new THREE.MeshStandardMaterial({ 
+                    color: 0xffffff, // Trắng tuyết
+                    metalness: 0.0, roughness: 0.9, // Nhám, không bóng
+                    emissive: 0xaaaaaa, emissiveIntensity: 0.3 
+                }),
+                dustOriginal: new THREE.MeshBasicMaterial({ 
+                    color: 0xffeebb, transparent: true, opacity: 0.6, blending: THREE.AdditiveBlending 
+                }),
+
+                // 2. Bụi băng (ICE): Lấp lánh, kim loại, phát sáng mạnh (Sparkling Frost)
+                iceDust: new THREE.MeshStandardMaterial({
+                    color: 0xffffff,             // Trắng tinh
+                    metalness: 1.0,              // Kim loại hoàn toàn để phản chiếu
+                    roughness: 0.1,              // Rất bóng
+                    emissive: 0xaaddff,          // Phát sáng xanh băng
+                    emissiveIntensity: 2.0,      // Cường độ mạnh để tạo hiệu ứng "lóa" (glare)
+                    envMapIntensity: 3.0,        // Phản chiếu môi trường mạnh
+                    transparent: true,
+                    opacity: 0.9,
+                    blending: THREE.AdditiveBlending // Hòa trộn cộng để tăng độ sáng
+                }),
+                starGold: new THREE.MeshStandardMaterial({
+                    color: 0xffdd88, 
+                    emissive: 0xffaa00, 
+                    emissiveIntensity: 2.0, 
+                    metalness: 1.0, 
+                    roughness: 0
+                }),
+
+                // 2. Sao Băng (ICE) - MỚI: Phát sáng xanh cực mạnh
+                starIce: new THREE.MeshStandardMaterial({
+                    color: 0xffffff,       // Trắng tinh
+                    emissive: 0xffffff,    // Phát sáng trắng
+                    emissiveIntensity: 3.0,// Sáng rực rỡ
+                    metalness: 1.0,        // Rất kim loại
+                    roughness: 0.0,
+                    envMapIntensity: 2.0
+                }),
+                starLovely: new THREE.MeshStandardMaterial({
+                    color: 0xff69b4,       // Hồng (Hot Pink)
+                    emissive: 0xff1493,    // Phát sáng hồng đậm
+                    emissiveIntensity: 3.0,
+                    metalness: 0.5, 
+                    roughness: 0
+                }),
+
+                frameIce: new THREE.MeshStandardMaterial({
+                    color: 0xffffff,
+                    metalness: 0.95,
+                    roughness: 0.5,
+                    roughnessMap: frostTex,
+                    emissive: 0x111111,
+                    emissiveIntensity: 0.2,
+                    envMapIntensity: 1.5
+                }),
+                lovelyPink: new THREE.MeshStandardMaterial({
+                    color: 0xffb7c5,       // Hồng phấn (Sakura)
+                    metalness: 0.3, roughness: 0.2, 
+                    emissive: 0x550022, emissiveIntensity: 0.1
+                }),
+                lovelyHotPink: new THREE.MeshPhysicalMaterial({ // Cho quả cầu
+                    color: 0xff1493,       // Hồng đậm (Deep Pink)
+                    metalness: 0.1, roughness: 0.1, clearcoat: 1.0,
+                    emissive: 0xaa0055, emissiveIntensity: 0.4
+                }),
+                lovelyWhite: new THREE.MeshStandardMaterial({ // Cho các hộp quà xen kẽ
+                    color: 0xffffff,
+                    metalness: 0.1, roughness: 0.1,
+                    emissive: 0xffffff, emissiveIntensity: 0.1
+                }),
+                // Tuyết hình trái tim
+                snowHeart: new THREE.PointsMaterial({
+                    color: 0xffc0cb,       // Hồng nhạt
+                    size: 1.5,             // To hơn tuyết thường chút
+                    map: heartSnowTex,     // Dùng hình trái tim
+                    transparent: true, opacity: 0.9, 
+                    depthWrite: false, blending: THREE.AdditiveBlending
+                }),
+                // Đỉnh cây hình trái tim
+                topperHeart: new THREE.MeshStandardMaterial({
+                    color: 0xff69b4,       // Hot Pink
+                    emissive: 0xff1493, emissiveIntensity: 3.0, // Phát sáng mạnh
+                    metalness: 0.5, roughness: 0
+                })
+            };
+
+            // 2. TẠO HÌNH DÁNG (GEOMETRY)
+            const sphereGeo = new THREE.SphereGeometry(0.5, 16, 16);
+            const boxGeo = new THREE.BoxGeometry(0.45, 0.45, 0.45); 
+            const curve = new THREE.CatmullRomCurve3([
+                new THREE.Vector3(0, -0.5, 0), new THREE.Vector3(0, 0.3, 0),
+                new THREE.Vector3(0.1, 0.5, 0), new THREE.Vector3(0.3, 0.4, 0)
+            ]);
+            const candyGeo = new THREE.TubeGeometry(curve, 8, 0.08, 6, false);
+
+            // 3. TẠO HẠT
+            for (let i = 0; i < CONFIG.particles.count; i++) {
+                const rand = Math.random();
+                let mesh, type, originalMat;
+                
+                // Chọn loại hạt và gán vật liệu gốc (XMAS)
+                if (rand < 0.35) { 
+                    mesh = new THREE.Mesh(boxGeo, matLib.green);
+                    type = 'BOX';
+                    originalMat = matLib.green;
+                } else if (rand < 0.70) { 
+                    mesh = new THREE.Mesh(boxGeo, matLib.gold);
+                    type = 'GOLD_BOX';
+                    originalMat = matLib.gold;
+                } else if (rand < 0.90) { 
+                    mesh = new THREE.Mesh(sphereGeo, matLib.gold);
+                    type = 'GOLD_SPHERE';
+                    originalMat = matLib.gold;
+                } else if (rand < 0.96) { 
+                    mesh = new THREE.Mesh(sphereGeo, matLib.red);
+                    type = 'RED';
+                    originalMat = matLib.red;
+                } else { 
+                    mesh = new THREE.Mesh(candyGeo, matLib.candy);
+                    type = 'CANE';
+                    originalMat = matLib.candy;
+                }
+                
+                const s = 0.4 + Math.random() * 0.4;
+                mesh.scale.set(s,s,s);
+                mesh.rotation.set(Math.random()*6, Math.random()*6, Math.random()*6);
+                
+                mainGroup.add(mesh);
+                
+                // Lưu particle với thông tin vật liệu gốc để còn reset
+                const p = new Particle(mesh, type, false);
+                p.originalMat = originalMat; // <--- QUAN TRỌNG: Lưu lại vật liệu gốc
+                particleSystem.push(p);
+            }
+
+            // Star
+            const starShape = new THREE.Shape();
+            const points = 5;
+            const outerRadius = 1.5;
+            const innerRadius = 0.7; 
+            
+            for (let i = 0; i < points * 2; i++) {
+                const angle = (i * Math.PI) / points + Math.PI / 2;
+                const r = (i % 2 === 0) ? outerRadius : innerRadius;
+                const x = Math.cos(angle) * r;
+                const y = Math.sin(angle) * r;
+                if (i === 0) starShape.moveTo(x, y);
+                else starShape.lineTo(x, y);
+            }
+            starShape.closePath();
+
+            const starGeo = new THREE.ExtrudeGeometry(starShape, {
+                depth: 0.4, bevelEnabled: true, bevelThickness: 0.1, bevelSize: 0.1, bevelSegments: 2
+            });
+            starGeo.center(); 
+            const star = new THREE.Mesh(starGeo, matLib.starGold);
+            star.position.set(0, CONFIG.particles.treeHeight/2 + 1.2, 0);
+
+            const heartShape = new THREE.Shape();
+            const x = 0, y = -0.5; // Offset tí cho cân
+            heartShape.moveTo( x + 2.5, y + 2.5 );
+            heartShape.bezierCurveTo( x + 2.5, y + 2.5, x + 2.0, y, x, y );
+            heartShape.bezierCurveTo( x - 3.0, y, x - 3.0, y + 3.5, x - 3.0, y + 3.5 );
+            heartShape.bezierCurveTo( x - 3.0, y + 5.5, x - 1.5, y + 7.7, x + 2.5, y + 9.5 );
+            heartShape.bezierCurveTo( x + 6.5, y + 7.7, x + 8.0, y + 5.5, x + 8.0, y + 3.5 );
+            heartShape.bezierCurveTo( x + 8.0, y + 3.5, x + 8.0, y, x + 5.0, y );
+            heartShape.bezierCurveTo( x + 3.5, y, x + 2.5, y + 2.5, x + 2.5, y + 2.5 );
+
+            const heartGeo = new THREE.ExtrudeGeometry(heartShape, { depth: 0.4, bevelEnabled: true, bevelThickness: 0.1, bevelSize: 0.1, bevelSegments: 2 });
+            heartGeo.center();
+            // Xoay tim ngược lại tí và scale nhỏ cho vừa
+            heartGeo.rotateZ(Math.PI); 
+            
+            const heartMesh = new THREE.Mesh(heartGeo, matLib.topperHeart);
+            heartMesh.position.copy(star.position); // Trùng vị trí sao
+            heartMesh.scale.set(0.25, 0.25, 0.25);  // Chỉnh lại tỷ lệ tim
+            heartMesh.visible = false; // Mặc định ẩn (vì ban đầu là Xmas)
+
+            const halo = new THREE.Mesh(new THREE.PlaneGeometry(8, 8), new THREE.MeshBasicMaterial({ 
+                map: new THREE.TextureLoader().load('https://raw.githubusercontent.com/mrdoob/three.js/master/examples/textures/sprites/glow.png'), 
+                blending: THREE.AdditiveBlending, 
+                depthWrite: false, 
+                transparent: true, 
+                opacity: 0.5, 
+                color: 0xffaa00 // Màu vàng ban đầu
+            }));
+            halo.position.copy(star.position);
+            mainGroup.add(star);
+            mainGroup.add(heartMesh); // Thêm tim vào scene
+            mainGroup.add(halo);
+
+            star.add(halo);
+            STATE.starMesh = star; 
+            STATE.starHaloMesh = halo;
+            mainGroup.add(photoMeshGroup);
+        }
+
+        function createDust() {
+            const geo = new THREE.TetrahedronGeometry(0.08, 0);
+            const mat = new THREE.MeshBasicMaterial({ color: 0xffeebb, transparent: true, opacity: 0.8 });
+            
+            for(let i=0; i<CONFIG.particles.dustCount; i++) {
+                 const mesh = new THREE.Mesh(geo, mat);
+                 mesh.scale.setScalar(0.8 + Math.random()*0.7);
+                 mainGroup.add(mesh);
+                 const p = new Particle(mesh, 'DUST', true);
+                 p.originalMat = matLib.dustOriginal;
+                 particleSystem.push(p); 
+            }
+        }
+
+        function addPhotoToScene(texture) {
+            const frameGeo = new THREE.BoxGeometry(1.4, 1.4, 0.05);
+            const frameMat = new THREE.MeshStandardMaterial({ color: CONFIG.colors.champagneGold, metalness: 1.0, roughness: 0.1 });
+
+            const isIce = (STATE.theme === 'ICE');
+            const currentFrameMat = isIce ? matLib.frameIce : matLib.gold;
+
+            const frame = new THREE.Mesh(frameGeo, currentFrameMat);
+
+            let width = 1.2;
+            let height = 1.2;
+            
+            if (texture.image) {
+                const aspect = texture.image.width / texture.image.height;
+                if (aspect > 1) {
+                    height = width / aspect;
+                } else {
+                    width = height * aspect;
+                }
+            }
+
+            const photoGeo = new THREE.PlaneGeometry(width, height);
+            const photoMat = new THREE.MeshBasicMaterial({ map: texture, side: THREE.DoubleSide });
+            const photo = new THREE.Mesh(photoGeo, photoMat);
+            photo.position.z = 0.04;
+
+            const group = new THREE.Group();
+            group.add(frame);
+            group.add(photo);
+            
+            frame.scale.set(width/1.2, height/1.2, 1);
+
+            const s = 0.8;
+            group.scale.set(s,s,s);
+            
+            photoMeshGroup.add(group);
+            particleSystem.push(new Particle(group, 'PHOTO', false));
+
+            updatePhotoLayout();
+        }
+        // wp/electronicminer wish you a Merry Christmas!
+        function handleImageUpload(e) {
+            const files = e.target.files;
+            if(!files.length) return;
+            
+            Array.from(files).forEach(f => {
+                if (!f.type.startsWith('image/')) return;
+                const reader = new FileReader();
+                reader.onload = (ev) => {
+                    new THREE.TextureLoader().load(ev.target.result, (t) => {
+                        t.colorSpace = THREE.SRGBColorSpace;
+                        addPhotoToScene(t);
+                    });
+                }
+                reader.readAsDataURL(f);
+            });
+        }
+
+        // --- MEDIAPIPE (Adaptive Fix) ---
+        async function initMediaPipe() {
+            video = document.getElementById('webcam');
+            
+            // Adjust to get best available resolution if possible
+            const constraints = {
+                video: {
+                    width: { ideal: 640 },
+                    height: { ideal: 480 },
+                    frameRate: { ideal: 30 }
+                }
+            };
+
+            const vision = await FilesetResolver.forVisionTasks(
+                "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.3/wasm"
+            );
+            handLandmarker = await HandLandmarker.createFromOptions(vision, {
+                baseOptions: {
+                    modelAssetPath: `https://storage.googleapis.com/mediapipe-models/hand_landmarker/hand_landmarker/float16/1/hand_landmarker.task`,
+                    delegate: "GPU"
+                },
+                runningMode: "VIDEO",
+                numHands: 1
+            });
+            
+            if (navigator.mediaDevices?.getUserMedia) {
+                try {
+                    const stream = await navigator.mediaDevices.getUserMedia(constraints);
+                    video.srcObject = stream;
+                    video.addEventListener("loadeddata", predictWebcam);
+                    debugInfo.innerText = "Webcam active. Show hand.";
+                } catch(e) {
+                    console.warn("Webcam access denied or not available", e);
+                    debugInfo.innerText = "Camera error: " + e.message;
+                    document.getElementById('webcam-wrapper').style.display = 'none';
+                }
+            }
+        }
+
+        let lastVideoTime = -1;
+        async function predictWebcam() {
+            if (video.currentTime !== lastVideoTime) {
+                lastVideoTime = video.currentTime;
+                if (STATE.isLetterOpen) {
+                    // Chỉ request frame tiếp theo mà không xử lý gì cả
+                    requestAnimationFrame(predictWebcam);
+                    return; 
+                }
+                if (handLandmarker) {
+                    const result = handLandmarker.detectForVideo(video, performance.now());
+                    processGestures(result);
+                }
+            }
+            requestAnimationFrame(predictWebcam);
+        }
+
+        // Hàm tìm ảnh đang ở gần giữa màn hình nhất
+        function getBestPhotoTarget() {
+            // Lấy danh sách ảnh chưa bị ẩn
+            const availablePhotos = particleSystem.filter(p => p.type === 'PHOTO' && !p.isViewed);
+            
+            if (availablePhotos.length === 0) return null;
+
+            let bestPhoto = null;
+            let minDistance = Infinity;
+            const screenCenter = new THREE.Vector2(0, 0); // Tâm màn hình (Normalized Device Coordinates)
+            const tempVec = new THREE.Vector3();
+
+            availablePhotos.forEach(p => {
+                // Lấy vị trí thực tế trong không gian thế giới (World Position)
+                p.mesh.getWorldPosition(tempVec);
+                
+                // Chiếu lên không gian màn hình (-1 đến 1)
+                tempVec.project(camera);
+                
+                // Tính khoảng cách tới tâm
+                const dist = Math.sqrt(tempVec.x * tempVec.x + tempVec.y * tempVec.y);
+
+                // tempVec.z < 1 nghĩa là vật thể nằm trước camera (không bị sau lưng)
+                if (tempVec.z < 1 && dist < minDistance) {
+                    minDistance = dist;
+                    bestPhoto = p;
+                }
+            });
+
+            return bestPhoto ? bestPhoto.mesh : null;
+        }
+
+        function changeTheme(themeName) {
+            if (STATE.theme === themeName) return; 
+            STATE.theme = themeName;
+            
+            const isIce = (themeName === 'ICE');
+            const isLovely = (themeName === 'LOVELY');
+
+            renderer.toneMappingExposure = 1.0; 
+
+            // 1. Xử lý Tuyết
+            STATE.snowEnabled = !isIce;
+            
+            if (snowSystem) {
+                if (isLovely) {
+                    snowSystem.material = matLib.snowHeart; // Tuyết hình trái tim
+                } else {
+                    // Tuyết tròn trắng (Xmas/Ice)
+                    if (matLib.snowOriginal) {
+                        snowSystem.material = matLib.snowOriginal;
+                    } else {
+                        snowSystem.material = new THREE.PointsMaterial({
+                             color: 0xffffff, size: 0.4, 
+                             transparent: true, opacity: 0.8, blending: THREE.AdditiveBlending, depthWrite: false
+                        });
+                    }
+                }
+            }
+
+            // 2. Xử lý Đỉnh Cây (QUAN TRỌNG: LUÔN LÀ NGÔI SAO)
+            // Ẩn trái tim to đi (nếu đã lỡ tạo ở bước trước)
+            if (STATE.heartTopperMesh) STATE.heartTopperMesh.visible = false;
+            
+            if (STATE.starMesh) {
+                STATE.starMesh.visible = true; // Luôn hiện ngôi sao
+                
+                if (isIce) {
+                    STATE.starMesh.material = matLib.starIce; // Sao Trắng
+                } else if (isLovely) {
+                    STATE.starMesh.material = matLib.starLovely; // Sao Hồng
+                } else {
+                    STATE.starMesh.material = matLib.starGold; // Sao Vàng (Xmas)
+                }
+            }
+
+            // 3. Xử lý Hào quang (Halo)
+            if (STATE.starHaloMesh) {
+                if (isIce) {
+                    STATE.starHaloMesh.material.color.setHex(0xffffff); // Hào quang Trắng
+                    STATE.starHaloMesh.material.opacity = 0.8;
+                } else if (isLovely) {
+                    STATE.starHaloMesh.material.color.setHex(0xff1493); // Hào quang Hồng
+                    STATE.starHaloMesh.material.opacity = 0.6;
+                } else {
+                    STATE.starHaloMesh.material.color.setHex(0xffaa00); // Hào quang Vàng
+                    STATE.starHaloMesh.material.opacity = 0.5;
+                }
+            }
+
+            // 4. Đổi màu các hạt (Giữ nguyên logic cũ)
+            particleSystem.forEach(p => {
+                // Xử lý Khung ảnh
+                if (p.type === 'PHOTO') {
+                    const group = p.mesh;
+                    if (group.children[0]) {
+                        if (isIce) group.children[0].material = matLib.frameIce;
+                        else if (isLovely) group.children[0].material = matLib.lovelyPink; 
+                        else group.children[0].material = matLib.gold;
+                    }
+                    return; 
+                }
+
+                // Xử lý Bụi
+                if (p.isDust) {
+                     if (isIce) p.mesh.material = matLib.iceDust;
+                     else if (isLovely) p.mesh.material = matLib.lovelyPink; 
+                     else p.mesh.material = p.originalMat;
+                     return;
+                }
+
+                // Xử lý Hạt chính
+                if (isIce) {
+                    if (p.type === 'GOLD_BOX' || p.type === 'GOLD_SPHERE' || p.type === 'BOX' || p.type === 'CANE') {
+                        p.mesh.material = matLib.ice;
+                    } else if (p.type === 'RED') {
+                        p.mesh.material = matLib.snow;
+                    }
+                } else if (isLovely) {
+                    if (p.type === 'BOX') p.mesh.material = matLib.lovelyPink;
+                    else if (p.type === 'GOLD_BOX' || p.type === 'GOLD_SPHERE') p.mesh.material = matLib.lovelyWhite;
+                    else if (p.type === 'RED') p.mesh.material = matLib.lovelyHotPink;
+                    else if (p.type === 'CANE') p.mesh.material = matLib.lovelyWhite;
+                } else {
+                    if (p.originalMat) p.mesh.material = p.originalMat;
+                }
+            });
+        }
+        // 修复核心：使用相对比例而非绝对距离
+        function processGestures(result) {
+            if (result.landmarks && result.landmarks.length > 0) {
+                STATE.hand.detected = true;
+                const lm = result.landmarks[0];
+                STATE.hand.x = (lm[9].x - 0.5) * 2; 
+                STATE.hand.y = (lm[9].y - 0.5) * 2;
+
+                const thumb = lm[4]; 
+                const index = lm[8]; 
+                const wrist = result.landmarks[0][0];
+                const middleMCP = lm[9]; // 中指指根 (Knuckle)
+                
+
+                const isFingerOpen = (tipIdx, pipIdx) => {
+                    const tip = result.landmarks[0][tipIdx];
+                    const pip = result.landmarks[0][pipIdx]; // Khớp nối ngón
+                    const dTip = Math.hypot(tip.x - wrist.x, tip.y - wrist.y);
+                    const dPip = Math.hypot(pip.x - wrist.x, pip.y - wrist.y);
+                    return dTip > dPip; // Nếu đầu ngón xa wrist hơn khớp -> Duỗi
+                };
+                const indexOpen = isFingerOpen(8, 6);   // Ngón trỏ
+                const middleOpen = isFingerOpen(12, 10); // Ngón giữa
+                const ringOpen = isFingerOpen(16, 14);   // Ngón áp út
+                const pinkyOpen = isFingerOpen(20, 18);  // Ngón út
+
+                const isGestureOne = indexOpen && !middleOpen && !ringOpen && !pinkyOpen;
+
+                if (isGestureOne) {
+                    if (!STATE.themeSwitchLock) {
+                        // LOGIC MỚI: XMAS -> ICE -> LOVELY -> XMAS
+                        let nextTheme = 'XMAS';
+                        if (STATE.theme === 'XMAS') nextTheme = 'ICE';
+                        else if (STATE.theme === 'ICE') nextTheme = 'LOVELY';
+                        else if (STATE.theme === 'LOVELY') nextTheme = 'XMAS';
+                        
+                        changeTheme(nextTheme);
+                        
+                        STATE.themeSwitchLock = true;
+                    }
+                }
+                else {
+                    // Nếu người dùng làm bất kỳ hành động nào khác (nắm tay, mở tay, dơ 2 ngón...)
+                    // thì MỞ KHÓA để sẵn sàng cho lần đổi tiếp theo
+                    STATE.themeSwitchLock = false;
+                }
+                
+                // 1. 计算手掌基准大小 (手腕到中指指根的距离)
+                const handSize = Math.hypot(middleMCP.x - wrist.x, middleMCP.y - wrist.y);
+                const baseSize = 0.15;
+                let zoomFactor = baseSize / handSize;
+                let newZ = 50 * zoomFactor;
+                newZ = Math.max(20, Math.min(newZ, 90));
+                STATE.targetZ = newZ;
+                if (handSize < 0.02) return;
+
+                // 2. 计算手指尖端的平均伸展距离
+                const tips = [lm[8], lm[12], lm[16], lm[20]];
+                let avgTipDist = 0;
+                tips.forEach(t => avgTipDist += Math.hypot(t.x - wrist.x, t.y - wrist.y));
+                avgTipDist /= 4;
+
+                // 3. 计算捏合距离 (拇指到食指)
+                const pinchDist = Math.hypot(thumb.x - index.x, thumb.y - index.y);
+
+                // 4. 计算相对比例
+                const extensionRatio = avgTipDist / handSize;
+                const pinchRatio = pinchDist / handSize;
+
+                // 调试显示
+                debugInfo.innerText = `Size: ${handSize.toFixed(2)} | Ext: ${extensionRatio.toFixed(2)} | Pinch: ${pinchRatio.toFixed(2)} | Mode: ${STATE.mode}`;
+
+                // 5. 状态判定优化
+                // 优先检查握拳 (Tree)，防止因为大拇指靠近食指而被误判为 Focus
+                if (extensionRatio < 1.5) {
+                    // 握拳：变成树 (阈值从 1.4 提高到 1.5，更容易触发)
+                    if (STATE.mode !== 'TREE') {
+                        STATE.mode = 'TREE';
+                        STATE.focusTarget = null;
+                        // RESET: Cho phép hiện lại tất cả ảnh khi quay về dạng cây
+                        // particleSystem.forEach(p => {
+                        //     if (p.type === 'PHOTO') p.isViewed = false;
+                        // });
+                    }
+                } else if (pinchRatio < 0.35) {
+                    // 捏合：进入聚焦模式 (仅当没有握拳时才检查)
+                    if (STATE.mode !== 'FOCUS' && !STATE.isLetterOpen) {
+                        const targetMesh = getBestPhotoTarget();
+                
+                        if (targetMesh) {
+                            STATE.mode = 'FOCUS';
+                            STATE.focusTarget = targetMesh;
+                            
+                            // Đánh dấu ảnh này là "Đã xem"
+                            // Tìm particle tương ứng để set cờ
+                            const p = particleSystem.find(item => item.mesh === targetMesh);
+                            if (p) p.isViewed = true;
+                        }
+                        else {
+                            openLetter();
+                        }
+                    }
+                } else if (extensionRatio > 1.7) {
+                    // 张开：散开照片
+                    STATE.mode = 'SCATTER';
+                    STATE.focusTarget = null;
+                }
+            } else {
+                STATE.hand.detected = false;
+                STATE.themeSwitchLock = false;
+                debugInfo.innerText = "No hand detected";
+            }
+        }
+
+        // --- HỆ THỐNG XỬ LÝ THƯ ---
+        function openLetter() {
+            if (STATE.isLetterOpen) return;
+            STATE.isLetterOpen = true;
+            STATE.mode = 'LETTER'; // Chuyển mode để dừng xoay cây nếu muốn
+
+            const overlay = document.getElementById('letter-overlay');
+            const paper = document.querySelector('.letter-paper');
+            const display = document.getElementById('letter-content-display');
+
+
+
+            // Hiển thị khung thư
+            overlay.style.display = 'flex';
+            // Dùng requestAnimationFrame để transition hoạt động mượt
+            requestAnimationFrame(() => {
+                overlay.style.opacity = 1;
+                paper.style.transform = 'translateY(0)';
+            });
+
+            // Reset nội dung và bắt đầu gõ
+            display.textContent = '';
+            display.classList.add('cursor');
+            
+            let i = 0;
+            // Hàm gõ chữ đệ quy
+            const typeWriter = () => {
+                if (!STATE.isLetterOpen) return;
+                
+                if (i < CONFIG.letter.length) {
+                    const chunk = CONFIG.letter.slice(i, i + 1); 
+                    display.textContent += chunk;
+                    i += 1;
+                    
+                    display.scrollTop = display.scrollHeight;
+                    
+                    const speed = (chunk.includes('\n')) ? 300 : 30 + Math.random() * 40; // Gõ nhanh hơn chút
+                    STATE.letterTyper = setTimeout(() => requestAnimationFrame(typeWriter), speed);
+                } else {
+                    display.classList.remove('cursor');
+                }
+            };
+            
+            // Chờ 1s sau khi giấy hiện lên mới bắt đầu viết
+            setTimeout(typeWriter, 1000);
+        }
+
+        function closeLetter() {
+            STATE.isLetterOpen = false;
+            STATE.mode = 'TREE'; // Trả lại quyền điều khiển
+            clearTimeout(STATE.letterTyper);
+
+            const overlay = document.getElementById('letter-overlay');
+            const paper = document.querySelector('.letter-paper');
+            const btnOpen = document.getElementById('btn-open-letter');
+
+            overlay.style.opacity = 0;
+            paper.style.transform = 'translateY(20px)';
+            btnOpen.style.opacity = 1;
+
+            setTimeout(() => {
+                overlay.style.display = 'none';
+                particleSystem.forEach(p => {
+                    if (p.type === 'PHOTO') p.isViewed = false;
+                });
+            }, 500);
+        }
+// wp/electronicminer wish you a Merry Christmas!
+        function setupEvents() {
+            window.addEventListener('resize', () => {
+                camera.aspect = window.innerWidth / window.innerHeight;
+                camera.updateProjectionMatrix();
+                renderer.setSize(window.innerWidth, window.innerHeight);
+                composer.setSize(window.innerWidth, window.innerHeight);
+            });
+            
+            // document.getElementById('file-input').addEventListener('change', handleImageUpload);
+            // document.getElementById('folder-input').addEventListener('change', handleImageUpload);
+            
+            window.addEventListener('keydown', (e) => {
+                if (e.key.toLowerCase() === 'h') {
+                    const controls = document.querySelector('.controls-wrapper');
+                    if (controls) controls.classList.toggle('ui-hidden');
+                    const webcam = document.getElementById('webcam-wrapper');
+                    if(webcam) webcam.classList.toggle('ui-hidden');
+                }
+            });
+            const musicBtn = document.getElementById('music-btn');
+            const audio = document.getElementById('bg-music');
+            const iconOn = document.getElementById('icon-sound-on');
+            const iconOff = document.getElementById('icon-sound-off');
+            let isPlaying = false;
+
+            // Hàm bật/tắt nhạc
+            function toggleMusic() {
+                if (isPlaying) {
+                    audio.pause();
+                    iconOn.style.display = 'none';
+                    iconOff.style.display = 'block';
+                    musicBtn.style.opacity = 0.4;
+                } else {
+                    audio.play().then(() => {
+                        iconOn.style.display = 'block';
+                        iconOff.style.display = 'none';
+                        musicBtn.style.opacity = 1;
+                    }).catch(e => console.log("Audio play error:", e));
+                }
+                isPlaying = !isPlaying;
+            }
+
+            // Gắn sự kiện click vào nút loa
+            musicBtn.addEventListener('click', (e) => {
+                e.stopPropagation(); // Ngăn click xuyên qua canvas
+                toggleMusic();
+            });
+            
+            // --- XỬ LÝ AUTOPLAY (QUAN TRỌNG) ---
+            // Cố gắng phát nhạc ngay khi tải trang
+            audio.play().then(() => {
+                isPlaying = true;
+            }).catch(() => {
+                // Nếu trình duyệt chặn, chờ click đầu tiên của người dùng để phát
+                isPlaying = false;
+                iconOn.style.display = 'none';
+                iconOff.style.display = 'block';
+                musicBtn.style.opacity = 0.4;
+                
+                const playOnFirstInteraction = () => {
+                    toggleMusic();
+                    window.removeEventListener('click', playOnFirstInteraction);
+                    window.removeEventListener('keydown', playOnFirstInteraction);
+                    window.removeEventListener('touchstart', playOnFirstInteraction);
+                };
+
+                window.addEventListener('click', playOnFirstInteraction);
+                window.addEventListener('keydown', playOnFirstInteraction);
+                window.addEventListener('touchstart', playOnFirstInteraction);
+            });
+            
+            document.getElementById('btn-close-letter').addEventListener('click', (e) => {
+                e.stopPropagation();
+                closeLetter();
+            });
+            
+            // Click ra ngoài vùng giấy để đóng thư
+            document.getElementById('letter-overlay').addEventListener('click', (e) => {
+                if (e.target.id === 'letter-overlay') closeLetter();
+            });
+        }
+
+        function animate() {
+            requestAnimationFrame(animate);
+            const dt = clock.getDelta();
+
+            if (STATE.mode === 'LETTER') {
+                // Chỉ xoay nhẹ cây làm nền
+                STATE.rotation.y += 0.05 * dt; 
+                STATE.rotation.x = THREE.MathUtils.lerp(STATE.rotation.x, 0, dt * 2);
+                
+                // Cập nhật vị trí camera từ từ lùi ra (nếu muốn)
+                camera.position.z += (60 - camera.position.z) * dt; // Lùi ra xa một chút (z=60)
+                
+                // Cập nhật rendering cơ bản
+                mainGroup.rotation.y = STATE.rotation.y;
+                mainGroup.rotation.x = STATE.rotation.x;
+                
+                // Vẫn render scene nhưng bỏ qua update logic nặng của particles nếu muốn
+                // Hoặc vẫn update nhưng tuyết không rơi
+                particleSystem.forEach(p => p.update(dt, STATE.mode, STATE.focusTarget));
+                
+                composer.render();
+                return; // <-- RETURN SỚM ĐỂ BỎ QUA CÁC LOGIC BÊN DƯỚI (như updateSnow)
+            }
+            // Rotation Logic
+            else if (STATE.mode === 'SCATTER' && STATE.hand.detected) {
+                // Tốc độ xoay cơ bản (bạn có thể chỉnh số này lớn hơn để quay nhanh hơn)
+                const moveSpeed = 2.5; 
+                
+                // Trục Y (Ngang):
+                // Dùng -STATE.hand.x để khi tay sang trái (âm), hình quay sang trái
+                STATE.rotation.y += (-STATE.hand.x * moveSpeed) * dt; 
+
+                // Trục X (Dọc):
+                // Giữ nguyên dấu dương để tay lên/xuống điều khiển hướng nhìn lên/xuống
+                // Nhân 0.5 để trục dọc quay chậm hơn trục ngang một chút cho đỡ chóng mặt
+                STATE.rotation.x += (STATE.hand.y * moveSpeed * 0.5) * dt;
+
+                // (Tùy chọn) Giới hạn góc nhìn lên xuống để không bị lộn ngược đầu
+                STATE.rotation.x = Math.max(-1.0, Math.min(1.0, STATE.rotation.x));
+            } else {
+                if(STATE.mode === 'TREE') {
+                    STATE.rotation.y += 0.3 * dt;
+                    STATE.rotation.x += (0 - STATE.rotation.x) * 2.0 * dt;
+                } else {
+                      STATE.rotation.y += 0.1 * dt; 
+                }
+            }
+
+            if (STATE.mode !== 'FOCUS') {
+                // Di chuyển camera từ từ đến vị trí targetZ
+                // Số 2.0 là tốc độ zoom (càng lớn càng nhanh)
+                camera.position.z += (STATE.targetZ - camera.position.z) * 2.0 * dt;
+            }
+
+            mainGroup.rotation.y = STATE.rotation.y;
+            mainGroup.rotation.x = STATE.rotation.x;
+
+            particleSystem.forEach(p => p.update(dt, STATE.mode, STATE.focusTarget));
+            updateSnow();
+
+            composer.render();
+        }
+// wp/electronicminer wish you a Merry Christmas!
+        init();
+    </script>
+</body>
+
+</html>
